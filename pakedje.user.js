@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.1.2
+// @version      1.1.7
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -193,37 +193,9 @@
                         let location = null;
 
                         if (carrierKey === 'postnl') {
-                            const parser = new DOMParser();
-                            const doc = parser.parseFromString(response.responseText, 'text/html');
-
-                            const notFoundArticle = doc.querySelector('article.ptt-notfound');
-                            
-                            if (notFoundArticle) {
-                                status = 'Niet Gevonden';
-                                details = 'Pakket (nog) niet gevonden in de systemen van PostNL.';
-                            } else {
-                                const mainStatusHeader = doc.querySelector('[data-id-art="mainStatusHeader"] h1');
-                                const mainStatusMessage = doc.querySelector('[data-id-art="mainStatusMessage"]');
-                                const lastObservation = doc.querySelector('.ptt-main-status__last-observation');
-
-                                if (mainStatusHeader) {
-                                    status = mainStatusHeader.textContent.trim();
-                                    if (status.includes('Pakket is bezorgd')) {
-                                        status = 'Bezorgd'; // Vereenvoudig status
-                                    } else if (status.includes('Pakket is onderweg')) {
-                                        status = 'Onderweg'; // Voeg 'Onderweg' status toe
-                                    }
-                                    // Verdere statusvereenvoudigingen kunnen hier komen
-                                }
-                                if (mainStatusMessage) {
-                                    details = mainStatusMessage.textContent.trim();
-                                }
-                                if (lastObservation) {
-                                    if (!details.includes(lastObservation.textContent.trim())) {
-                                        details += ' ' + lastObservation.textContent.trim();
-                                    }
-                                }
-                            }
+                            const parsedStatus = parsePostNLStatus(response.responseText);
+                            status = parsedStatus;
+                            details = `Retrieved from PostNL API: ${parsedStatus}`; // Update details based on new parsing
                         }
                         // ... overige carrier specifieke parsing hier
 
@@ -235,6 +207,26 @@
                     }
                 });
             });
+        }
+    }
+
+    function parsePostNLStatus(response) {
+        try {
+            const data = JSON.parse(response);
+            const trackingNumber = Object.keys(data.colli)[0];
+            const packageData = data.colli[trackingNumber];
+
+            if (packageData && packageData.isDelivered) {
+                return "Delivered: " + packageData.statusPhase.message;
+            } else if (packageData && packageData.observations && packageData.observations.length > 0) {
+                return packageData.observations[0].description;
+            } else if (packageData && packageData.statusPhase && packageData.statusPhase.message) {
+                return packageData.statusPhase.message;
+            }
+            return "Onbekende status (JSON)";
+        } catch (e) {
+            console.error("Error parsing PostNL JSON response:", e);
+            return "Onbekende status (parseerfout)";
         }
     }
 
