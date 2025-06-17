@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.2.8
+// @version      1.2.9
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -303,7 +303,7 @@
                     const date = dateEl ? dateEl.textContent.trim() : '';
                     const time = timeEl ? timeEl.textContent.trim() : '';
                     const status = statusEl.textContent.trim();
-                    const location = locationEl ? locationEl.textContent.trim() : '';
+                    const location = locationEl ? locationEl.textContent.replace(/\s+/g, ' ').trim() : '';
                     
                     const eventText = `${date} ${time}: ${status}${location ? ` (${location})` : ''}`;
                     events.push(eventText);
