@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.2.6
+// @version      1.2.7
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -375,21 +375,33 @@
 
     async function fetchDPDTimeline(trackingNumber) {
         const timelineUrl = `https://www.dpdgroup.com/nl/mydpd/my-parcels/track?parcelNumber=${trackingNumber}&parcelType=INCOMING`;
-        try {
-            const response = await fetch(timelineUrl);
-            const html = await response.text();
-            const parsed = parseDPDStatus(html);
-            console.log('================ DPD TIMELINE ================');
-            console.log(`  Status: ${parsed.status}`);
-            console.log(`  Details: ${parsed.details}`);
-            if (parsed.events && parsed.events.length > 0) {
-                console.log(`  Tijdlijn:`);
-                parsed.events.forEach(event => console.log(`    - ${event}`));
-            }
-            console.log('======================================================');
-        } catch (error) {
-            console.error('Error fetching DPD timeline:', error);
-        }
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: timelineUrl,
+                onload: function(response) {
+                    if (response.status === 200) {
+                        const parsed = parseDPDStatus(response.responseText);
+                        console.log('================ DPD TIMELINE ================');
+                        console.log(`  Status: ${parsed.status}`);
+                        console.log(`  Details: ${parsed.details}`);
+                        if (parsed.events && parsed.events.length > 0) {
+                            console.log(`  Tijdlijn:`);
+                            parsed.events.forEach(event => console.log(`    - ${event}`));
+                        }
+                        console.log('======================================================');
+                        resolve(parsed);
+                    } else {
+                        console.error('Error fetching DPD timeline:', response.statusText);
+                        reject(new Error(`HTTP error! status: ${response.status}`));
+                    }
+                },
+                onerror: function(error) {
+                    console.error('Error fetching DPD timeline:', error);
+                    reject(error);
+                }
+            });
+        });
     }
 
     // Initialiseer de detectie zodra het DOM geladen is
