@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.1.8
+// @version      1.1.9
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -194,8 +194,9 @@
 
                         if (carrierKey === 'postnl') {
                             const parsedStatus = parsePostNLStatus(response.responseText);
-                            status = parsedStatus;
-                            details = `Retrieved from PostNL API: ${parsedStatus}`; // Update details based on new parsing
+                            status = parsedStatus.status;
+                            details = parsedStatus.details;
+                            location = parsedStatus.location;
                         }
                         // ... overige carrier specifieke parsing hier
 
@@ -216,17 +217,52 @@
             const trackingNumber = Object.keys(data.colli)[0];
             const packageData = data.colli[trackingNumber];
 
-            if (packageData && packageData.isDelivered) {
-                return "Delivered: " + packageData.statusPhase.message;
-            } else if (packageData && packageData.observations && packageData.observations.length > 0) {
-                return packageData.observations[0].description;
-            } else if (packageData && packageData.statusPhase && packageData.statusPhase.message) {
-                return packageData.statusPhase.message;
+            if (!packageData) {
+                return { status: "Onbekende status (geen pakketdata)", details: "Geen pakketdata gevonden in de respons.", events: [], raw: data };
             }
-            return "Onbekende status (JSON)";
+
+            let status = "Onbekende status";
+            let details = "Details niet beschikbaar.";
+            let events = [];
+            let deliveryInfo = "";
+            let etaInfo = "";
+
+            // Main status
+            if (packageData.statusPhase && packageData.statusPhase.message) {
+                status = packageData.statusPhase.message;
+            }
+
+            // Delivery status and date
+            if (packageData.isDelivered) {
+                status = "Bezorgd";
+                if (packageData.deliveryDate) {
+                    const date = new Date(packageData.deliveryDate);
+                    deliveryInfo = ` (${date.toLocaleDateString('nl-NL')} om ${date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })})`;
+                }
+            }
+
+            // ETA information
+            if (packageData.eta && packageData.eta.start && packageData.eta.end) {
+                const etaStart = new Date(packageData.eta.start);
+                const etaEnd = new Date(packageData.eta.end);
+                etaInfo = ` Verwachte bezorging: ${etaStart.toLocaleDateString('nl-NL')} tussen ${etaStart.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })} en ${etaEnd.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`;
+            }
+
+            // Observations/Events
+            if (packageData.observations && packageData.observations.length > 0) {
+                details = `Laatste update: ${packageData.observations[0].description}.`;
+                events = packageData.observations.map(obs => {
+                    const date = new Date(obs.observationDate);
+                    return `${date.toLocaleDateString('nl-NL')} ${date.toLocaleTimeString('nl-NL')}: ${obs.description}`;
+                });
+            } else if (packageData.statusPhase && packageData.statusPhase.message) {
+                details = packageData.statusPhase.message; // Fallback if no detailed observations
+            }
+
+            return { status: status + deliveryInfo, details: details + etaInfo, events: events, raw: data };
         } catch (e) {
             console.error("Error parsing PostNL JSON response:", e);
-            return "Onbekende status (parseerfout)";
+            return { status: "Onbekende status (parseerfout)", details: "Fout bij het parsen van de JSON respons.", events: [], raw: null };
         }
     }
 
@@ -239,8 +275,14 @@
             console.log(`Verzender: ${carrier}, Trackingnummer: ${trackingNumber}`);
             const packageTracker = new PackageTracker(CARRIER_CONFIG);
             packageTracker.getTrackingStatus(carrier, trackingNumber)
-                .then(status => {
-                    console.log(`Pakketstatus voor ${carrier}:`, status);
+                .then(result => {
+                    console.log(`Pakketstatus voor ${carrier}:`);
+                    console.log(`  Status: ${result.status}`);
+                    console.log(`  Details: ${result.details}`);
+                    if (result.events && result.events.length > 0) {
+                        console.log(`  Tijdlijn:`);
+                        result.events.forEach(event => console.log(`    - ${event}`));
+                    }
                     // Hier zou de UI-update of notificatielogica komen
                 })
                 .catch(error => {
