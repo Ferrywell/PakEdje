@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.1.0
+// @version      1.1.1
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -197,7 +197,9 @@
                             const doc = parser.parseFromString(response.responseText, 'text/html');
 
                             const notFoundElement = doc.querySelector('.ptt-notfound');
-                            if (notFoundElement) {
+                            const pageBodyText = doc.body ? doc.body.textContent : '';
+
+                            if (notFoundElement || pageBodyText.includes('Pakket (nog) niet gevonden')) {
                                 status = 'Niet Gevonden';
                                 details = 'Pakket (nog) niet gevonden in de systemen van PostNL.';
                             } else {
@@ -209,13 +211,15 @@
                                     status = mainStatusHeader.textContent.trim();
                                     if (status.includes('Pakket is bezorgd')) {
                                         status = 'Bezorgd'; // Vereenvoudig status
+                                    } else if (status.includes('Pakket is onderweg')) {
+                                        status = 'Onderweg'; // Voeg 'Onderweg' status toe
                                     }
+                                    // Verdere statusvereenvoudigingen kunnen hier komen
                                 }
                                 if (mainStatusMessage) {
                                     details = mainStatusMessage.textContent.trim();
                                 }
                                 if (lastObservation) {
-                                    // Locatie is niet direct uit dit fragment te halen, maar we kunnen updates tonen
                                     if (!details.includes(lastObservation.textContent.trim())) {
                                         details += ' ' + lastObservation.textContent.trim();
                                     }
