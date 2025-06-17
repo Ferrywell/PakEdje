@@ -36,9 +36,9 @@
         dpd: {
             name: 'DPD',
             domains: ['dpd.com', 'dpdgroup.com'],
-            trackingPaths: ['/nl/nl/ontvangen/volgen/', '/nl/en/receiving/track/', '/trace.dpd.fr/en/trace'],
-            paramName: 'parcelNumber', // Dit is een placeholder, echte parameters moeten geëxtraheerd worden uit de URL
-            regex: /(?:\/parcelNumber=|\/tracking\/|\/track\/)?([A-Z0-9]{10,20})/i // Voorbeeld regex voor DPD tracking nummers
+            trackingPaths: ['/nl/nl/ontvangen/volgen/', '/nl/en/receiving/track/', '/trace.dpd.fr/en/trace', '/nl/mydpd/my-parcels/incoming'],
+            paramName: 'parcelNumber',
+            regex: /[?&]parcelNumber=([A-Z0-9]{10,20})/i // Regex for DPD tracking numbers in query string
         },
         postnl: {
             name: 'PostNL',
