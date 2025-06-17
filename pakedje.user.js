@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.1.11
+// @version      1.2.0
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -200,6 +200,12 @@
                             location = parsedStatus.location;
                             events = parsedStatus.events;
                         }
+                        if (carrierKey === 'dpd') {
+                            const parsedStatus = parseDPDStatus(response.responseText);
+                            status = parsedStatus.status;
+                            details = parsedStatus.details;
+                            events = parsedStatus.events;
+                        }
                         // ... overige carrier specifieke parsing hier
 
                         resolve({ status, details, location, events });
@@ -268,6 +274,45 @@
         } catch (e) {
             console.error("Error parsing PostNL JSON response:", e);
             return { status: "Onbekende status (parseerfout)", details: "Fout bij het parsen van de JSON respons.", events: [], raw: null };
+        }
+    }
+
+    function parseDPDStatus(response) {
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(response, 'text/html');
+            const statusRows = doc.querySelectorAll('.parcelStatus .row');
+            let events = [];
+            let mainStatus = 'Onbekende status';
+            let details = '';
+
+            // Extract timeline events
+            statusRows.forEach(row => {
+                const statusEl = row.querySelector('.col-xs-7 > span');
+                const dateEl = row.querySelector('.col-xs-5 > span.bolded.inlineDate');
+                const statusText = statusEl ? statusEl.textContent.trim() : '';
+                const dateText = dateEl ? dateEl.textContent.trim() : '';
+                if (statusText) {
+                    events.push(dateText ? `${dateText}: ${statusText}` : statusText);
+                }
+            });
+
+            // The most recent status with a date is the current status
+            for (let i = 0; i < events.length; i++) {
+                if (events[i].match(/^\d{2}-\d{2}-\d{4}/)) {
+                    mainStatus = events[i];
+                    break;
+                }
+            }
+            if (mainStatus === 'Onbekende status' && events.length > 0) {
+                mainStatus = events[0];
+            }
+            details = events.length > 0 ? `Tijdlijn: ${events.join(' | ')}` : 'Geen tijdlijn gevonden.';
+
+            return { status: mainStatus, details, events };
+        } catch (e) {
+            console.error('Error parsing DPD HTML response:', e);
+            return { status: 'Onbekende status (parseerfout)', details: 'Fout bij het parsen van de HTML respons.', events: [] };
         }
     }
 
