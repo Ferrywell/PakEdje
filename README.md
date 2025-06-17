@@ -101,4 +101,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 - Thanks to all contributors who have helped with this research project
-- Special thanks to the open-source community for inspiration and tools 
+- Special thanks to the open-source community for inspiration and tools
