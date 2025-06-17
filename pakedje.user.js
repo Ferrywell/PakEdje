@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.2.4
+// @version      1.2.5
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -341,6 +341,38 @@
         return parcels;
     }
 
+    function parseDPDParcelDetails(doc) {
+        const details = {};
+        // Tracking number
+        const trackingEl = doc.querySelector('.parcelNumber');
+        details.trackingNumber = trackingEl ? trackingEl.textContent.trim() : null;
+        // Status
+        const statusEl = doc.querySelector('.deliveryStatusType');
+        details.status = statusEl ? statusEl.textContent.trim() : null;
+        // Sender
+        const senderEl = doc.querySelector('.parcelSender h4 span');
+        details.sender = senderEl ? senderEl.textContent.trim() : null;
+        // Recipient
+        const recipientEl = doc.querySelector('.box-4 p:nth-of-type(2)');
+        details.recipient = recipientEl ? recipientEl.textContent.trim() : null;
+        // Address (combine all address lines)
+        const addressLines = Array.from(doc.querySelectorAll('.box-4 p'))
+            .slice(2) // skip 'Naar:' and recipient
+            .map(p => p.textContent.trim())
+            .filter(line => line.length > 0);
+        details.address = addressLines.join(', ');
+        // Weight
+        const weightEl = doc.querySelector('.box-5 .mb-15:nth-of-type(1) p:nth-of-type(2)');
+        details.weight = weightEl ? weightEl.textContent.trim() : null;
+        // Dimensions
+        const dimEl = doc.querySelector('.box-5 .mb-15:nth-of-type(2) p:nth-of-type(2)');
+        details.dimensions = dimEl ? dimEl.textContent.trim() : null;
+        // Product
+        const productEl = doc.querySelector('.box-5 .mb-15:nth-of-type(3) p:nth-of-type(2)');
+        details.product = productEl ? productEl.textContent.trim() : null;
+        return details;
+    }
+
     // Initialiseer de detectie zodra het DOM geladen is
     function initPakEdje() {
         console.log('Initializing PakEdje...');
@@ -374,22 +406,13 @@
             parcels.forEach(parcel => {
                 console.log(`  Tracking: ${parcel.trackingNumber}, Status: ${parcel.status}${parcel.alias ? ', Alias: ' + parcel.alias : ''}`);
             });
-            // Detailed view for the active parcel
-            const activeLi = doc.querySelector('.parcel-list > li.active');
-            if (activeLi) {
-                const link = activeLi.querySelector('a[href*="parcelNumber="]');
-                const trackingNumberMatch = link && link.href.match(/parcelNumber=([0-9]+)/);
-                const trackingNumber = trackingNumberMatch ? trackingNumberMatch[1] : null;
-                // Find the detailed timeline/status for this parcel
-                // The detailed view is usually rendered elsewhere on the page, but for now, parse the whole DOM
-                const parsedStatus = parseDPDStatus(document.documentElement.innerHTML);
-                console.log(`\nDPD detailed view for active parcel (${trackingNumber}):`);
-                console.log(`  Status: ${parsedStatus.status}`);
-                console.log(`  Details: ${parsedStatus.details}`);
-                if (parsedStatus.events && parsedStatus.events.length > 0) {
-                    console.log(`  Tijdlijn:`);
-                    parsedStatus.events.forEach(event => console.log(`    - ${event}`));
-                }
+            // Detailed summary for the active parcel
+            const details = parseDPDParcelDetails(doc);
+            if (details.trackingNumber) {
+                console.log('\nDPD active parcel summary:');
+                Object.entries(details).forEach(([key, value]) => {
+                    if (value) console.log(`  ${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`);
+                });
             }
             return;
         }
