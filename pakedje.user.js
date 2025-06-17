@@ -303,7 +303,7 @@
                     const date = dateEl ? dateEl.textContent.trim() : '';
                     const time = timeEl ? timeEl.textContent.trim() : '';
                     const status = statusEl.textContent.trim();
-                    const location = locationEl ? locationEl.textContent.replace(/\s+/g, ' ').trim() : '';
+                    const location = locationEl ? locationEl.textContent.replace(/\s+/g, ' ').replace(/\s*,\s*/g, ', ').trim() : '';
                     
                     const eventText = `${date} ${time}: ${status}${location ? ` (${location})` : ''}`;
                     events.push(eventText);
