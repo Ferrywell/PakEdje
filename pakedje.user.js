@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.2.0
+// @version      1.2.2
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -148,8 +148,14 @@
                     requestOptions = { method: 'GET' };
                     break;
                 case 'dpd':
-                    trackingUrl = `https://www.dpd.com/nl/nl/ontvangen/volgen/?parcelnumber=${trackingNumber}`;
-                    requestOptions = { method: 'GET' };
+                    // If on a DPD myDPD tracking page, parse DOM directly
+                    if (window.location.pathname.includes('/nl/mydpd/my-parcels/incoming')) {
+                        const parsedStatus = parseDPDStatus(document.documentElement.innerHTML);
+                        return { status: parsedStatus.status, details: parsedStatus.details, location: null, events: parsedStatus.events };
+                    } else {
+                        trackingUrl = `https://www.dpd.com/nl/nl/ontvangen/volgen/?parcelnumber=${trackingNumber}`;
+                        requestOptions = { method: 'GET' };
+                    }
                     break;
                 case 'ups':
                     trackingUrl = `https://www.ups.com/track?tracknum=${trackingNumber}`;
