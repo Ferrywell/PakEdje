@@ -121,13 +121,117 @@
         return { carrier: detectedCarrier, trackingNumber: detectedTrackingNumber };
     }
 
+    class PackageTracker {
+        constructor(carrierConfig) {
+            this.carrierConfig = carrierConfig;
+        }
+
+        /**
+         * Haalt de trackingstatus op voor een specifiek pakket.
+         * @param {string} carrierKey - De sleutel van de vervoerder (e.g., 'postnl', 'dpd').
+         * @param {string} trackingNumber - Het trackingnummer van het pakket.
+         * @returns {Promise<Object>} Een Promise die resolved met een statusobject { status: string, details: string, location: string }.
+         */
+        async getTrackingStatus(carrierKey, trackingNumber) {
+            const config = this.carrierConfig[carrierKey];
+            if (!config) {
+                console.error(`Onbekende vervoerder: ${carrierKey}`);
+                return { status: 'Error', details: 'Onbekende vervoerder', location: null };
+            }
+
+            let trackingUrl = '';
+            let requestOptions = {};
+
+            switch (carrierKey) {
+                case 'postnl':
+                    trackingUrl = `https://jouw.postnl.nl/track-and-trace/${trackingNumber}`;
+                    requestOptions = { method: 'GET' };
+                    break;
+                case 'dpd':
+                    trackingUrl = `https://www.dpd.com/nl/nl/ontvangen/volgen/?parcelnumber=${trackingNumber}`;
+                    requestOptions = { method: 'GET' };
+                    break;
+                case 'ups':
+                    trackingUrl = `https://www.ups.com/track?tracknum=${trackingNumber}`;
+                    requestOptions = { method: 'GET' };
+                    break;
+                case 'dhl':
+                    trackingUrl = `https://www.dhl.com/nl-en/home/tracking.html?trackingNumber=${trackingNumber}`;
+                    requestOptions = { method: 'GET' };
+                    break;
+                case 'gls':
+                    trackingUrl = `https://gls-group.eu/NL/nl/pakket-zoeken.html?matchcode=${trackingNumber}`;
+                    requestOptions = { method: 'GET' };
+                    break;
+                case 'bpost':
+                    trackingUrl = `https://track.bpost.be/bpc/track_search?SearchId=${trackingNumber}`;
+                    requestOptions = { method: 'GET' };
+                    break;
+                case 'mondialrelay':
+                    trackingUrl = `https://www.mondialrelay.fr/suivi-de-colis?numTracking=${trackingNumber}`;
+                    requestOptions = { method: 'GET' };
+                    break;
+                default:
+                    console.warn(`Geen specifieke trackinglogica voor ${carrierKey}.`);
+                    return { status: 'Onbekend', details: 'Geen trackinglogica', location: null };
+            }
+
+            console.log(`Pakketstatus opvragen voor ${carrierKey} met nummer ${trackingNumber} via URL: ${trackingUrl}`);
+
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: requestOptions.method,
+                    url: trackingUrl,
+                    onload: function(response) {
+                        // Hier komt de parsing logica voor de specifieke vervoerder
+                        // Voor nu een placeholder
+                        console.log(`Response van ${carrierKey}:`, response.responseText.substring(0, 200) + '...'); // Log de eerste 200 tekens
+
+                        // Voorbeeld parsing (dit moet per vervoerder gespecificeerd worden)
+                        let status = 'Onbekende status';
+                        let details = 'Details nog niet geparseerd.';
+                        let location = null;
+
+                        if (carrierKey === 'postnl') {
+                            // Zeer simpele placeholder, vereist gedetailleerde HTML parsing
+                            if (response.responseText.includes('bezorgd')) {
+                                status = 'Bezorgd';
+                                details = 'Pakket is succesvol bezorgd.';
+                            } else if (response.responseText.includes('onderweg')) {
+                                status = 'Onderweg';
+                                details = 'Pakket is onderweg.';
+                            }
+                            // Verdere PostNL parsing logica hier
+                        }
+                        // ... overige carrier specifieke parsing hier
+
+                        resolve({ status, details, location });
+                    },
+                    onerror: function(error) {
+                        console.error(`Fout bij opvragen status voor ${carrierKey}:`, error);
+                        reject({ status: 'Error', details: 'Fout bij netwerkverzoek', location: null });
+                    }
+                });
+            });
+        }
+    }
+
     // Initialiseer de detectie zodra het DOM geladen is
     function initPakEdje() {
         console.log('Initializing PakEdje...');
         const { carrier, trackingNumber } = detectCarrierAndTrackingNumber();
+
         if (carrier && trackingNumber) {
             console.log(`Verzender: ${carrier}, Trackingnummer: ${trackingNumber}`);
-            // Hier zou verdere logica komen voor het tonen van de UI, status ophalen, etc.
+            const packageTracker = new PackageTracker(CARRIER_CONFIG);
+            packageTracker.getTrackingStatus(carrier, trackingNumber)
+                .then(status => {
+                    console.log(`Pakketstatus voor ${carrier}:`, status);
+                    // Hier zou de UI-update of notificatielogica komen
+                })
+                .catch(error => {
+                    console.error('Fout bij het ophalen van de pakketstatus:', error);
+                });
         } else {
             console.log('Geen trackinginformatie gevonden op deze pagina. PakEdje blijft inactief.');
         }
