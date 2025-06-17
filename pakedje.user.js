@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.2.5
+// @version      1.2.6
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -373,8 +373,27 @@
         return details;
     }
 
+    async function fetchDPDTimeline(trackingNumber) {
+        const timelineUrl = `https://www.dpdgroup.com/nl/mydpd/my-parcels/track?parcelNumber=${trackingNumber}&parcelType=INCOMING`;
+        try {
+            const response = await fetch(timelineUrl);
+            const html = await response.text();
+            const parsed = parseDPDStatus(html);
+            console.log('================ DPD TIMELINE ================');
+            console.log(`  Status: ${parsed.status}`);
+            console.log(`  Details: ${parsed.details}`);
+            if (parsed.events && parsed.events.length > 0) {
+                console.log(`  Tijdlijn:`);
+                parsed.events.forEach(event => console.log(`    - ${event}`));
+            }
+            console.log('======================================================');
+        } catch (error) {
+            console.error('Error fetching DPD timeline:', error);
+        }
+    }
+
     // Initialiseer de detectie zodra het DOM geladen is
-    function initPakEdje() {
+    async function initPakEdje() {
         console.log('Initializing PakEdje...');
         const { carrier, trackingNumber } = detectCarrierAndTrackingNumber();
 
@@ -395,6 +414,11 @@
                 .catch(error => {
                     console.error('Fout bij het ophalen van de pakketstatus:', error);
                 });
+
+            // If carrier is DPD and not on the timeline page, fetch the timeline
+            if (carrier === 'dpd' && !window.location.pathname.includes('/nl/mydpd/my-parcels/track')) {
+                await fetchDPDTimeline(trackingNumber);
+            }
         } else {
             console.log('Geen trackinginformatie gevonden op deze pagina. PakEdje blijft inactief.');
         }
@@ -402,18 +426,19 @@
         if (carrier === 'dpd' && window.location.hostname === 'e.dpd.nl' && document.querySelector('.parcel-list')) {
             const doc = document;
             const parcels = parseDPDSummaryList(doc);
-            console.log('DPD summary list detected. Parcels:');
+            console.log('================ DPD SUMMARY LIST ================');
             parcels.forEach(parcel => {
                 console.log(`  Tracking: ${parcel.trackingNumber}, Status: ${parcel.status}${parcel.alias ? ', Alias: ' + parcel.alias : ''}`);
             });
             // Detailed summary for the active parcel
             const details = parseDPDParcelDetails(doc);
             if (details.trackingNumber) {
-                console.log('\nDPD active parcel summary:');
+                console.log('---------------- ACTIVE PARCEL DETAILS ----------------');
                 Object.entries(details).forEach(([key, value]) => {
                     if (value) console.log(`  ${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`);
                 });
             }
+            console.log('======================================================');
             return;
         }
     }
