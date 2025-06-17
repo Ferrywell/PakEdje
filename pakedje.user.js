@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.2.3
+// @version      1.2.4
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -374,6 +374,23 @@
             parcels.forEach(parcel => {
                 console.log(`  Tracking: ${parcel.trackingNumber}, Status: ${parcel.status}${parcel.alias ? ', Alias: ' + parcel.alias : ''}`);
             });
+            // Detailed view for the active parcel
+            const activeLi = doc.querySelector('.parcel-list > li.active');
+            if (activeLi) {
+                const link = activeLi.querySelector('a[href*="parcelNumber="]');
+                const trackingNumberMatch = link && link.href.match(/parcelNumber=([0-9]+)/);
+                const trackingNumber = trackingNumberMatch ? trackingNumberMatch[1] : null;
+                // Find the detailed timeline/status for this parcel
+                // The detailed view is usually rendered elsewhere on the page, but for now, parse the whole DOM
+                const parsedStatus = parseDPDStatus(document.documentElement.innerHTML);
+                console.log(`\nDPD detailed view for active parcel (${trackingNumber}):`);
+                console.log(`  Status: ${parsedStatus.status}`);
+                console.log(`  Details: ${parsedStatus.details}`);
+                if (parsedStatus.events && parsedStatus.events.length > 0) {
+                    console.log(`  Tijdlijn:`);
+                    parsedStatus.events.forEach(event => console.log(`    - ${event}`));
+                }
+            }
             return;
         }
     }
