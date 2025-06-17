@@ -45,7 +45,7 @@
             domains: ['postnl.nl'],
             trackingPaths: ['/track-and-trace/'],
             paramName: null, // Voor PostNL zit het nummer vaak direct in het pad
-            regex: /\/(track-and-trace|mijn-pakket)\/([A-Z0-9]{10,20}(?:NL)?)/i // Regex voor PostNL tracking nummers
+            regex: /(?:track-and-trace|mijn-pakket)\/([A-Z0-9]{10,20}(?:NL)?)(?:-[A-Z0-9]+)?/i // Regex voor PostNL tracking nummers
         },
         ups: {
             name: 'UPS',
