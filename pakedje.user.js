@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.1.7
+// @version      1.1.8
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -45,7 +45,7 @@
             domains: ['postnl.nl'],
             trackingPaths: ['/track-and-trace/'],
             paramName: null, // Voor PostNL zit het nummer vaak direct in het pad
-            regex: /(?:track-and-trace|mijn-pakket)\/([A-Z0-9]{10,20}(?:NL)?)(?:-[A-Z0-9]+)?/i // Regex voor PostNL tracking nummers
+            regex: /(?:track-and-trace|mijn-pakket)\/([A-Z0-9]{10,20}(?:-[A-Z0-9]+)*)/i // Regex voor PostNL tracking nummers
         },
         ups: {
             name: 'UPS',
@@ -144,7 +144,7 @@
 
             switch (carrierKey) {
                 case 'postnl':
-                    trackingUrl = `https://jouw.postnl.nl/track-and-trace/${trackingNumber}`;
+                    trackingUrl = `https://jouw.postnl.nl/track-and-trace/api/trackAndTrace/${trackingNumber}?language=nl`;
                     requestOptions = { method: 'GET' };
                     break;
                 case 'dpd':
