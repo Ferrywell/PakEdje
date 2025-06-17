@@ -193,15 +193,34 @@
                         let location = null;
 
                         if (carrierKey === 'postnl') {
-                            // Zeer simpele placeholder, vereist gedetailleerde HTML parsing
-                            if (response.responseText.includes('bezorgd')) {
-                                status = 'Bezorgd';
-                                details = 'Pakket is succesvol bezorgd.';
-                            } else if (response.responseText.includes('onderweg')) {
-                                status = 'Onderweg';
-                                details = 'Pakket is onderweg.';
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(response.responseText, 'text/html');
+
+                            const notFoundElement = doc.querySelector('.ptt-notfound');
+                            if (notFoundElement) {
+                                status = 'Niet Gevonden';
+                                details = 'Pakket (nog) niet gevonden in de systemen van PostNL.';
+                            } else {
+                                const mainStatusHeader = doc.querySelector('[data-id-art="mainStatusHeader"] h1');
+                                const mainStatusMessage = doc.querySelector('[data-id-art="mainStatusMessage"]');
+                                const lastObservation = doc.querySelector('.ptt-main-status__last-observation');
+
+                                if (mainStatusHeader) {
+                                    status = mainStatusHeader.textContent.trim();
+                                    if (status.includes('Pakket is bezorgd')) {
+                                        status = 'Bezorgd'; // Vereenvoudig status
+                                    }
+                                }
+                                if (mainStatusMessage) {
+                                    details = mainStatusMessage.textContent.trim();
+                                }
+                                if (lastObservation) {
+                                    // Locatie is niet direct uit dit fragment te halen, maar we kunnen updates tonen
+                                    if (!details.includes(lastObservation.textContent.trim())) {
+                                        details += ' ' + lastObservation.textContent.trim();
+                                    }
+                                }
                             }
-                            // Verdere PostNL parsing logica hier
                         }
                         // ... overige carrier specifieke parsing hier
 
