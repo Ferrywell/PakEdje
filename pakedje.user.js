@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PakEdje - Multi-Carrier Package Tracker
 // @namespace    http://tampermonkey.net/
-// @version      1.2.10
+// @version      1.2.11
 // @description  Advanced multi-carrier package tracking system for Netherlands/Belgium. For RESEARCH PURPOSES ONLY. Not for commercial use.
 // @author       Ferry Well
 // @match        *://*.dpdgroup.com/*
@@ -133,95 +133,45 @@
          * @returns {Promise<Object>} Een Promise die resolved met een statusobject { status: string, details: string, location: string }.
          */
         async getTrackingStatus(carrierKey, trackingNumber) {
-            const config = this.carrierConfig[carrierKey];
-            if (!config) {
-                console.error(`Onbekende vervoerder: ${carrierKey}`);
-                return { status: 'Error', details: 'Onbekende vervoerder', location: null };
-            }
+            try {
+                let trackingUrl = '';
+                let response = null;
 
-            let trackingUrl = '';
-            let requestOptions = {};
-
-            switch (carrierKey) {
-                case 'postnl':
-                    trackingUrl = `https://jouw.postnl.nl/track-and-trace/api/trackAndTrace/${trackingNumber}?language=nl`;
-                    requestOptions = { method: 'GET' };
-                    break;
-                case 'dpd':
-                    // If on a DPD myDPD tracking page, parse DOM directly
-                    if (window.location.pathname.includes('/nl/mydpd/my-parcels/incoming')) {
-                        const parsedStatus = parseDPDStatus(document.documentElement.innerHTML);
-                        return { status: parsedStatus.status, details: parsedStatus.details, location: null, events: parsedStatus.events };
-                    } else {
-                        trackingUrl = `https://www.dpd.com/nl/nl/ontvangen/volgen/?parcelnumber=${trackingNumber}`;
-                        requestOptions = { method: 'GET' };
+                // If we're already on a tracking page, use the current page's content
+                if (carrierKey === 'dpd' && window.location.pathname.includes('/nl/mydpd/my-parcels/track')) {
+                    response = { responseText: document.documentElement.innerHTML };
+                } else {
+                    // Otherwise, fetch the tracking page
+                    switch (carrierKey) {
+                        case 'postnl':
+                            trackingUrl = `https://jouw.postnl.nl/tracktrace/api/tracktracestatus/v1/${trackingNumber}`;
+                            response = await this.fetchWithTimeout(trackingUrl);
+                            break;
+                        case 'dpd':
+                            trackingUrl = `https://www.dpdgroup.com/nl/mydpd/my-parcels/track?parcelNumber=${trackingNumber}&parcelType=INCOMING`;
+                            response = await this.fetchWithTimeout(trackingUrl);
+                            break;
+                        default:
+                            throw new Error(`Unsupported carrier: ${carrierKey}`);
                     }
-                    break;
-                case 'ups':
-                    trackingUrl = `https://www.ups.com/track?tracknum=${trackingNumber}`;
-                    requestOptions = { method: 'GET' };
-                    break;
-                case 'dhl':
-                    trackingUrl = `https://www.dhl.com/nl-en/home/tracking.html?trackingNumber=${trackingNumber}`;
-                    requestOptions = { method: 'GET' };
-                    break;
-                case 'gls':
-                    trackingUrl = `https://gls-group.eu/NL/nl/pakket-zoeken.html?matchcode=${trackingNumber}`;
-                    requestOptions = { method: 'GET' };
-                    break;
-                case 'bpost':
-                    trackingUrl = `https://track.bpost.be/bpc/track_search?SearchId=${trackingNumber}`;
-                    requestOptions = { method: 'GET' };
-                    break;
-                case 'mondialrelay':
-                    trackingUrl = `https://www.mondialrelay.fr/suivi-de-colis?numTracking=${trackingNumber}`;
-                    requestOptions = { method: 'GET' };
-                    break;
-                default:
-                    console.warn(`Geen specifieke trackinglogica voor ${carrierKey}.`);
-                    return { status: 'Onbekend', details: 'Geen trackinglogica', location: null };
+                }
+
+                // Parse the response based on carrier
+                if (carrierKey === 'postnl') {
+                    return parsePostNLStatus(response.responseText);
+                } else if (carrierKey === 'dpd') {
+                    return parseDPDStatus(response.responseText);
+                }
+
+                throw new Error(`Unsupported carrier: ${carrierKey}`);
+            } catch (error) {
+                console.error(`Error getting tracking status for ${carrierKey}:`, error);
+                return {
+                    status: 'Fout bij ophalen status',
+                    details: error.message,
+                    events: []
+                };
             }
-
-            console.log(`Pakketstatus opvragen voor ${carrierKey} met nummer ${trackingNumber} via URL: ${trackingUrl}`);
-
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: requestOptions.method,
-                    url: trackingUrl,
-                    onload: function(response) {
-                        // Hier komt de parsing logica voor de specifieke vervoerder
-                        // Voor nu een placeholder
-                        console.log(`Response van ${carrierKey}:`, response.responseText.substring(0, 200) + '...'); // Log de eerste 200 tekens
-
-                        // Voorbeeld parsing (dit moet per vervoerder gespecificeerd worden)
-                        let status = 'Onbekende status';
-                        let details = 'Details nog niet geparseerd.';
-                        let location = null;
-                        let events = [];
-
-                        if (carrierKey === 'postnl') {
-                            const parsedStatus = parsePostNLStatus(response.responseText);
-                            status = parsedStatus.status;
-                            details = parsedStatus.details;
-                            location = parsedStatus.location;
-                            events = parsedStatus.events;
-                        }
-                        if (carrierKey === 'dpd') {
-                            const parsedStatus = parseDPDStatus(response.responseText);
-                            status = parsedStatus.status;
-                            details = parsedStatus.details;
-                            events = parsedStatus.events;
-                        }
-                        // ... overige carrier specifieke parsing hier
-
-                        resolve({ status, details, location, events });
-                    },
-                    onerror: function(error) {
-                        console.error(`Fout bij opvragen status voor ${carrierKey}:`, error);
-                        reject({ status: 'Error', details: 'Fout bij netwerkverzoek', location: null });
-                    }
-                });
-            });
         }
     }
 
